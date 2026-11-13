@@ -420,3 +420,73 @@ def test_capacity_and_expiry_keep_inflight_and_active_reviews(monkeypatch, workf
         start(other)
         expired = api.get(route + "/export")
         assert expired.status_code == 409 and "current_run" not in expired.json()["detail"]
+
+
+def test_refresh_loads_only_current_workspace_and_tracks_approval(workflow):
+    api, peer = workflow
+    current = "/api/workspace/current"
+    mine, route = start(api)
+    # The cookie-backed workspace and a second tab in that browser have distinct reviews.
+    tab_headers = {"X-RevisionGate-Workspace": str(uuid4())}
+    assert api.get(current, headers=tab_headers).json() == {"run": None}
+    second = api.post("/api/analyze", headers=tab_headers, json=packet("03_complete")).json()
+    assert api.get(current, headers=tab_headers).json() == {"run": second}
+    mine_before_approval = api.get(current)
+    assert mine_before_approval.json() == {"run": mine}
+    assert mine_before_approval.headers["cache-control"] == "no-store"
+
+    edited = review(mine)
+    edited["questions"][0]["question"] += " Please confirm the release before procurement."
+    approved = api.post(route + "/approve-clarification", json=edited).json()
+    assert approved["questions"] == edited["questions"]
+    assert approved["allowed_actions"]["download_export"]
+    assert api.get(current).json() == {"run": approved}
+    assert api.get(current, headers=tab_headers).json() == {"run": second}
+
+    reopened = api.post(route + "/reopen", json=versions(approved)).json()
+    assert reopened["clarification"]["approval"] is None
+    assert api.get(current).json() == {"run": reopened}
+    assert peer.stages == ["smoke", "extract", "draft", "extract", "draft"]
+    refreshed_run, _ = start(api, packet("02_material_changed"))
+    assert api.get(current).json() == {"run": refreshed_run}
+    assert api.get(route + "/export").status_code == 409
+
+
+def test_refresh_reads_inflight_analysis_without_starting_another(workflow):
+    api, peer = workflow
+    api.headers["X-RevisionGate-Workspace"] = str(uuid4())
+    arrived, resume = Event(), Event()
+    peer.hold = (arrived, resume)
+    responses = []
+    thread = Thread(target=lambda: responses.append(api.post("/api/analyze", json=packet())))
+    thread.start()
+    try:
+        assert arrived.wait(3)
+        running = api.get("/api/workspace/current").json()["run"]
+        assert running["analysis"]["status"] == "running"
+        assert not running["allowed_actions"]["approve_clarification"]
+        assert peer.stages == ["smoke", "extract"]
+    finally:
+        resume.set()
+        thread.join(5)
+    assert responses[0].status_code == 200
+    assert responses[0].json()["run_id"] == running["run_id"]
+    assert api.get("/api/workspace/current").json() == {"run": responses[0].json()}
+    assert peer.stages == ["smoke", "extract", "draft"]
+
+
+def test_refresh_of_unknown_or_expired_workspace_uses_no_capacity(monkeypatch, workflow):
+    api, peer = workflow
+    clock = [1000]
+    monkeypatch.setattr(backend_main, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(backend_main, "MAX_WORKSPACES", 1)
+    monkeypatch.setattr(backend_main, "WORKSPACE_TTL_SECONDS", 15)
+    current = "/api/workspace/current"
+    other = {"X-RevisionGate-Workspace": str(uuid4())}
+    assert api.get(current).json() == {"run": None}
+    assert api.get(current, headers=other).json() == {"run": None}
+    assert not peer.stages
+    start(api)
+    clock[0] += 16
+    assert api.get(current).json() == {"run": None}
+    assert api.post("/api/analyze", headers=other, json=packet()).status_code == 200

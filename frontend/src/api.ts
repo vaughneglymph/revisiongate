@@ -1,8 +1,6 @@
 import type { Correction, Packet, Question, Run } from "./types";
 import { sourceIds } from "./types";
-
-// Keep the workspace with this page's review. Duplicating a tab also starts a fresh review.
-const workspaceId = crypto.randomUUID();
+import { workspaceId } from "./reviewSession";
 
 export class ApiError extends Error {
   constructor(message: string, public status: number, public currentRun?: Run) { super(message); }
@@ -40,6 +38,7 @@ function runPath(run: Run, action: string) { return "/api/runs/" + encodeURIComp
 
 export const api = {
   async fixtures(): Promise<Packet[]> { return (await (await request("/api/fixtures")).json()).packets; },
+  async currentRun(): Promise<Run | null> { return (await (await request("/api/workspace/current")).json()).run; },
   async analyze(packet: Packet): Promise<Run> { return (await request("/api/analyze", "POST", packet)).json(); },
   async correct(run: Run, corrections: Correction[]): Promise<Run> {
     return (await request(runPath(run, "fields"), "PATCH", { ...versions(run), corrections })).json();

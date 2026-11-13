@@ -353,24 +353,24 @@ class Workspaces:
         self.lock = RLock()
 
     @contextmanager
-    def use(self, key: str | None, *, create: bool = False) -> Iterator[Workspace]:
-        if key is None:
-            unavailable_run()
+    def lookup(self, key: str | None, *, create: bool = False) -> Iterator[Workspace | None]:
         with self.lock:
             now_mono = monotonic()
             expired = [token for token, e in self.entries.items()
                        if not e.in_flight and now_mono - e.last_used >= WORKSPACE_TTL_SECONDS]
             for token in expired:
                 del self.entries[token]
-            entry = self.entries.get(key)
-            if entry is None:
-                if not create:
-                    unavailable_run()
+            entry = self.entries.get(key) if key is not None else None
+            if entry is None and create and key is not None:
                 if len(self.entries) >= MAX_WORKSPACES:
                     reject(503, "workspace_capacity", "All demo workspaces are in use. Please try again later.")
                 entry = WorkspaceEntry(Workspace(self.client), now_mono)
                 self.entries[key] = entry
-            entry.in_flight += 1
+            if entry is not None:
+                entry.in_flight += 1
+        if entry is None:
+            yield None
+            return
         # An in-flight model request pins just this entry. Other judges continue independently.
         try:
             yield entry.workspace
@@ -378,6 +378,13 @@ class Workspaces:
             with self.lock:
                 entry.in_flight -= 1
                 entry.last_used = monotonic()
+
+    @contextmanager
+    def use(self, key: str | None, *, create: bool = False) -> Iterator[Workspace]:
+        with self.lookup(key, create=create) as workspace:
+            if workspace is None:
+                unavailable_run()
+            yield workspace
 
 
 def create_app(client: VertexClient | None = None) -> FastAPI:
@@ -424,6 +431,14 @@ def create_app(client: VertexClient | None = None) -> FastAPI:
     @app.get("/api/fixtures")
     def fixtures():
         return {"packets": [json.loads(p.read_text()) for p in sorted((ROOT / "fixtures").glob("*.json"))]}
+
+    @app.get("/api/workspace/current")
+    def current_review(http_request: Request):
+        with workspaces.lookup(http_request.state.workspace_key) as workspace:
+            if workspace is None:
+                return {"run": None}
+            with workspace.lock:
+                return {"run": view(workspace.current) if workspace.current is not None else None}
 
     @app.post("/api/analyze")
     def analyze(packet: Packet, http_request: Request):

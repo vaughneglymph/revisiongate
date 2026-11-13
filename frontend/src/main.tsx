@@ -1,21 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AlertCircle, ArrowRight, Box, CheckCircle2, ChevronDown, Circle, FlaskConical, FolderClosed, LoaderCircle, LockKeyhole, RotateCcw, ScanLine, ShieldAlert } from "lucide-react";
 import { api, ApiError } from "./api";
-import { Analysis } from "./Analysis";
-import { Documents } from "./Documents";
-import { packets } from "./labels";
 import { ReviewScreen } from "./design";
+import { readReviewSession, saveReviewSession, type SavedReview } from "./reviewSession";
 import type { Correction, Packet, Question, Run } from "./types";
-
 import "./styles.css";
 
-function Header() {
-  return <header className="app-header"><div className="header-inner">
-    <div className="brand"><img src="/mark.svg" width="34" height="34" alt=""/><span>Revision<span className="brand-light">Gate</span></span></div>
-    <span className="workspace-name">Estimator workspace</span>
-    <span className="synthetic-tag"><FlaskConical/>Synthetic demo</span>
-  </div></header>;
+function snapshot(packetId: string, run: Run | null, reviewing: boolean, questions: Question[]): SavedReview {
+  const edits: Record<string, string> = {};
+  if (run && !run.clarification.approval) {
+    for (const question of questions) {
+      const original = run.questions.find(q => q.finding_id === question.finding_id);
+      if (original && question.question !== original.question) edits[question.finding_id] = question.question;
+    }
+  }
+  return {
+    packetId, reviewing, edits, resume: !!run,
+    runId: run?.run_id ?? null,
+    runVersion: run?.versions.run_version ?? null,
+    draftVersion: run?.versions.draft_version ?? null,
+  };
+}
+
+function sameVersion(saved: SavedReview, run: Run | null) {
+  return run != null && saved.packetId === run.packet.packet_id && saved.runId === run.run_id
+    && saved.runVersion === run.versions.run_version && saved.draftVersion === run.versions.draft_version;
 }
 
 function App() {
@@ -31,28 +40,81 @@ function App() {
   const [reviewing, setReviewing] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [busy, setBusy] = useState("");
-  const [previousDraft, setPreviousDraft] = useState<Question[]>([]);
+  const [previousDraft, setPreviousDraft] = useState<string[]>([]);
   const operating = useRef(false);
-  const reviewIntro = useRef<HTMLDivElement>(null);
+
+  function load(result: Run, showReview: boolean, wording = result.questions) {
+    saveReviewSession(snapshot(result.packet.packet_id, result, showReview, wording));
+    setPacketId(result.packet.packet_id); setRun(result); setQuestions(wording); setReviewing(showReview);
+    setStale(false); setReplacement(null); setPreviousDraft([]);
+  }
+
   useEffect(() => {
     let active = true;
-    setLoadingPackets(true); setError("");
-    api.fixtures().then(list => {
-      if (active) { setAvailable(list); setPacketId(list[0]?.packet_id ?? ""); }
-    }).catch(e => { if (active) setError(e.message); }).finally(() => { if (active) setLoadingPackets(false); });
+    async function restore() {
+      setLoadingPackets(true); setError(""); setBusy("Restoring review");
+      try {
+        const list = await api.fixtures();
+        if (!active) return;
+        const saved = readReviewSession();
+        const selected = list.find(p => p.packet_id === saved?.packetId) ?? list[0];
+        if (saved?.resume && selected?.packet_id === saved.packetId) {
+          let current = await api.currentRun();
+          // A reload can race the original analysis request reaching the backend.
+          // Read status without resubmitting a model request or an approval.
+          for (let poll = 0; active && poll < 60; poll++) {
+            const waitForStart = saved.pending === "analyze" && (!current || current.run_id === saved.runId);
+            const waitForChange = sameVersion(saved, current) && (saved.pending === "correct" ||
+              (saved.pending === "reopen" && !!current?.clarification.approval) ||
+              (saved.pending === "approve" && !current?.clarification.approval));
+            const running = current?.analysis.status === "running";
+            if (!running && !(poll < 2 && (waitForStart || waitForChange))) break;
+            setBusy(running ? "Waiting for the current analysis" : "Restoring review");
+            await new Promise(resolve => window.setTimeout(resolve, 1000));
+            if (!active) return;
+            current = await api.currentRun();
+          }
+          if (!active) return;
+          if (current?.analysis.status === "running") throw new Error("The current analysis is still running. Retry to check its progress.");
+          if (current && current.packet.packet_id === saved.packetId) {
+            // Only wording comes from tab storage. References, approval, and
+            // everything that permits an action come from the latest server run.
+            const useEdits = sameVersion(saved, current) && current.allowed_actions.edit_draft && !current.clarification.approval;
+            const wording = useEdits ? current.questions.map(q => ({
+              ...q, question: saved.edits[q.finding_id] ?? q.question,
+            })) : current.questions;
+            load(current, !!current.clarification.approval || (saved.reviewing && saved.runId === current.run_id), wording);
+            if (current.analysis.status === "failed") {
+              setError("The last request failed. Inspect the source documents and retry.");
+            } else {
+              setNotice("Review restored.");
+            }
+          } else {
+            setPreviousDraft(Object.values(saved.edits));
+            setNotice(current ? "The selected packet has no current review. Analyze it to begin." :
+              "The server review is no longer available. Analyze the selected packet to start a new review.");
+          }
+        }
+        if (active) { setAvailable(list); setPacketId(selected?.packet_id ?? ""); }
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : "The review could not be restored. Retry to reconnect.");
+      } finally {
+        if (active) { setLoadingPackets(false); setBusy(""); }
+      }
+    }
+    void restore();
     return () => { active = false; };
   }, [attempt]);
 
   const packet = available.find(p => p.packet_id === packetId);
   const edited = questions.some(q => run?.questions.find(original => original.finding_id === q.finding_id)?.question !== q.question);
-  function load(result: Run, showReview: boolean) {
-    setRun(result); setQuestions(result.questions); setReviewing(showReview);
-    setStale(false); setReplacement(null); setPreviousDraft([]);
-  }
+
   function select(id: string) {
+    saveReviewSession(snapshot(id, null, false, []));
     setPacketId(id); setRun(null); setReviewing(false); setQuestions([]); setReplacement(null);
     setNotice(""); setError(""); setStale(false); setPreviousDraft([]);
   }
+
   function handleError(e: unknown, operation: string) {
     setError(e instanceof Error ? e.message : "The request failed. Retry the operation.");
     if (e instanceof ApiError && e.status === 409) {
@@ -63,14 +125,18 @@ function App() {
       if (e instanceof ApiError && e.currentRun?.extracted_fields?.RFQ) setReplacement(e.currentRun);
     } else if (e instanceof ApiError && e.currentRun) {
       load(e.currentRun, operation === "correct");
-      if (operation === "correct" && questions.length && e.currentRun.analysis.status === "failed") setPreviousDraft(questions);
+      if (operation === "correct" && questions.length && e.currentRun.analysis.status === "failed") setPreviousDraft(questions.map(q => q.question));
     } else if (e instanceof ApiError && e.status === 0 && ["correct", "approve", "reopen"].includes(operation)) {
       setStale(true);
     }
   }
-  async function perform(label: string, operation: string, action: () => Promise<void>) {
+
+  async function perform(label: string, operation: "analyze" | "correct" | "approve" | "reopen" | "download", action: () => Promise<void>) {
     if (operating.current) return false;
     operating.current = true;
+    if (operation !== "download") {
+      saveReviewSession({ ...snapshot(packetId, run, reviewing, questions), resume: true, pending: operation });
+    }
     setBusy(label); setError(""); setNotice("");
     try {
       await action();
@@ -80,6 +146,7 @@ function App() {
       return false;
     } finally { operating.current = false; setBusy(""); }
   }
+
   function analyze() {
     if (!packet) return;
     void perform("Analyzing packet", "analyze", async () => {
@@ -88,8 +155,15 @@ function App() {
     });
   }
   function openReview() {
+    saveReviewSession(snapshot(packetId, run, true, questions));
     setReviewing(true); setNotice("");
-    requestAnimationFrame(() => reviewIntro.current?.focus());
+  }
+  function editQuestion(id: string, text: string) {
+    if (!run?.allowed_actions.edit_draft || run.clarification.approval) return;
+    const next = questions.map(q => q.finding_id === id ? { ...q, question: text } : q);
+    // Persist during the input event, including an intentionally cleared field.
+    saveReviewSession(snapshot(packetId, run, reviewing, next));
+    setQuestions(next);
   }
   function correct(correction?: Correction) {
     if (!run) return Promise.resolve(false);
@@ -122,17 +196,13 @@ function App() {
       await api.download(run); setNotice("Packet download started.");
     });
   }
-  const disabled = !!busy || stale;
-  const part = run?.extracted_fields?.RFQ?.part_id?.value;
-  const readiness = stale ? "Needs review" : !run || run.analysis.status === "running" ? "Not assessed" : run.quote_readiness === "blocked" ? "Blocked" : "Needs review";
-  const ReadinessIcon = readiness === "Blocked" ? LockKeyhole : readiness === "Not assessed" ? Circle : ShieldAlert;
-  // Presentation lives in src/design. This container still owns all state and API calls.
+
   return <ReviewScreen
     packets={available} packetId={packetId} packetsLoading={loadingPackets} packet={packet} run={run}
     questions={questions} previousDraft={previousDraft} reviewing={reviewing} analyzing={busy === "Analyzing packet"} busy={busy}
     error={error} notice={notice} stale={stale} edited={edited} canLoadReplacement={!!replacement}
     onSelectPacket={select} onAnalyzePacket={analyze} onReviewEvidence={openReview} onCorrectField={correct}
-    onEditDraft={(id, text) => setQuestions(qs => qs.map(q => q.finding_id === id ? {...q, question: text} : q))}
+    onEditDraft={editQuestion}
     onApproveClarification={approve} onDownloadExport={download} onReopenDraft={reopen} onRefreshDraft={() => void correct()}
     onLoadReplacement={() => { if (replacement) { load(replacement, false); setError(""); setNotice("Current extraction loaded. Review its evidence before continuing."); } }}
     onRetryPackets={() => retryFixtures(n => n + 1)}/>;

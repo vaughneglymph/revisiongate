@@ -6,7 +6,7 @@ All four fixtures passed live Vertex verification. The [recorded analysis](evide
 
 ## Hosted hackathon demo
 
-[Open RevisionGate on Cloud Run](https://revisiongate-266196031355.us-east1.run.app). Judges can review the same or different synthetic packets simultaneously without signing in. Each tab has its own findings, editable questions, approval and download. Analyzing again replaces the previous review in that tab. Refreshing or closing the page ends access to that review, so download the approved packet first.
+[Open RevisionGate on Cloud Run](https://revisiongate-266196031355.us-east1.run.app). Judges can review the same or different synthetic packets simultaneously without signing in. Refresh the same tab to resume its selected packet, question edits and current approval status. New tabs start independent reviews. Analyzing again replaces the previous run in that tab. Download an approved packet for a lasting copy.
 
 The service runs in `us-east1` with one instance at most, a single backend worker and scale-to-zero enabled. The runtime uses its attached service account for Vertex AI. The source build packages the production frontend, backend, synthetic fixtures, prompts and extraction schema.
 
@@ -57,13 +57,14 @@ A missing extracted mandatory value is a provisional gap with a pending semantic
 
 ## API and storage
 
-The backend keeps one current run per workspace in memory. The web app generates a random workspace key for each page and sends it in the `X-RevisionGate-Workspace` header. API clients can instead retain the session cookie across requests. Every run operation checks the workspace and run ID before accessing review data. A new valid analysis supersedes that workspace's prior run before inference, including when the new request later fails.
+The backend keeps one current run per workspace in memory. A tab uses browser session storage to keep its random workspace key, selected packet, review step and unapproved wording through a reload. On refresh, the app reads the server's current run and restores edits only to their original draft version. The server owns approval and export permissions. The app sends its key in the `X-RevisionGate-Workspace` header. API clients can instead retain the session cookie. A new valid analysis supersedes that workspace's prior run before inference, including when the new request later fails.
 
 Inactive workspaces expire after two hours. The service accepts up to 128 workspaces at once and lets active requests finish before cleanup. Instance restarts and scale-to-zero clear in-memory reviews. Downloaded packets are portable snapshots.
 
 | Method and path | Input and result |
 |---|---|
 | `GET /api/fixtures` | Returns the four complete synthetic packets for selection. |
+| `GET /api/workspace/current` | Returns the workspace's current run or `null` when no run is available. Reloading a review makes no inference calls. |
 | `POST /api/analyze` | Accepts a fixture object. Returns run ID, sources, extracted fields, field review states, findings, questions, quote readiness, clarification status, allowed actions, versions and call provenance. |
 | `PATCH /api/runs/{id}/fields` | Accepts both expected versions and a corrections list. Each change has source ID, field, value and exact evidence spans. Revalidates, records the change, increments versions and generates a new draft. An empty list retries a failed drafting stage. |
 | `POST /api/runs/{id}/approve-clarification` | Accepts both expected versions, edited questions, reviewed finding IDs, all three reviewed source IDs, and explicit confirmation of meaning and completeness. Saves approved wording atomically. |
