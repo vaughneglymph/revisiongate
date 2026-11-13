@@ -1,12 +1,17 @@
-"""Single-workspace, in-memory RevisionGate API."""
+"""In-memory RevisionGate API with independent, anonymous review workspaces."""
 from __future__ import annotations
 
 import json
+import os
+import re
+from contextlib import contextmanager
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
-from typing import Annotated, Any, Literal
+from time import monotonic
+from typing import Annotated, Any, Iterator, Literal
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -26,6 +31,11 @@ Json = dict[str, Any]
 SourceID = Literal["RFQ", "DRAWING", "CHECKLIST"]
 Fact = Literal["part_id", "quantity", "revision", "material", "finish"]
 Version = Annotated[int, Field(ge=0)]
+WORKSPACE_TTL_SECONDS = 2 * 60 * 60
+MAX_WORKSPACES = 128
+WORKSPACE_HEADER = "X-RevisionGate-Workspace"
+WORKSPACE_COOKIE = "revisiongate_workspace"
+WORKSPACE_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")
 
 
 class Input(BaseModel):
@@ -125,6 +135,10 @@ def reject(status: int, code: str, message: str, run: Json | None = None):
     raise HTTPException(status_code=status, detail=detail)
 
 
+def unavailable_run():
+    reject(409, "superseded_run", "This run is no longer current. Analyze the selected packet again.")
+
+
 def view(run: Json) -> Json:
     """Make a detached API snapshot while holding the workspace lock."""
     result = deepcopy(run)
@@ -177,7 +191,7 @@ def compute_rules(run: Json, reviewed: set[tuple[str, str]]):
 
 
 class Workspace:
-    """A new analysis supersedes the previous packet in this single-estimator demo."""
+    """A new analysis supersedes only this workspace's previous packet."""
 
     def __init__(self, client: VertexClient):
         self.client = client
@@ -187,7 +201,7 @@ class Workspace:
     def require(self, run_id: str, versions: ExpectedVersions | None = None) -> Json:
         run = self.current
         if run is None or run["run_id"] != run_id:
-            reject(409, "superseded_run", "This run is no longer current. Analyze the selected packet again.")
+            unavailable_run()
         if versions is not None:
             v = run["versions"]
             if (v["run_version"], v["draft_version"]) != (versions.expected_run_version, versions.expected_draft_version):
@@ -216,7 +230,6 @@ class Workspace:
             return view(run)
 
     def analyze(self, packet: Json) -> Json:
-        domain.validate_packet(packet)
         run: Json = {
             "run_id": str(uuid4()),
             "packet": {"packet_id": packet["packet_id"], "synthetic": True},
@@ -326,10 +339,84 @@ class Workspace:
                                                   "Cache-Control": "no-store"})
 
 
+@dataclass
+class WorkspaceEntry:
+    workspace: Workspace
+    last_used: float
+    in_flight: int = 0
+
+
+class Workspaces:
+    def __init__(self, client: VertexClient):
+        self.client = client
+        self.entries: dict[str, WorkspaceEntry] = {}
+        self.lock = RLock()
+
+    @contextmanager
+    def lookup(self, key: str | None, *, create: bool = False) -> Iterator[Workspace | None]:
+        with self.lock:
+            now_mono = monotonic()
+            expired = [token for token, e in self.entries.items()
+                       if not e.in_flight and now_mono - e.last_used >= WORKSPACE_TTL_SECONDS]
+            for token in expired:
+                del self.entries[token]
+            entry = self.entries.get(key) if key is not None else None
+            if entry is None and create and key is not None:
+                if len(self.entries) >= MAX_WORKSPACES:
+                    reject(503, "workspace_capacity", "All demo workspaces are in use. Please try again later.")
+                entry = WorkspaceEntry(Workspace(self.client), now_mono)
+                self.entries[key] = entry
+            if entry is not None:
+                entry.in_flight += 1
+        if entry is None:
+            yield None
+            return
+        # An in-flight model request pins just this entry. Other judges continue independently.
+        try:
+            yield entry.workspace
+        finally:
+            with self.lock:
+                entry.in_flight -= 1
+                entry.last_used = monotonic()
+
+    @contextmanager
+    def use(self, key: str | None, *, create: bool = False) -> Iterator[Workspace]:
+        with self.lookup(key, create=create) as workspace:
+            if workspace is None:
+                unavailable_run()
+            yield workspace
+
+
 def create_app(client: VertexClient | None = None) -> FastAPI:
     app = FastAPI(title="RevisionGate", version="0.1.0")
     app.add_middleware(BoundedBody)
-    workspace = Workspace(client if client is not None else VertexClient())
+    workspaces = Workspaces(client if client is not None else VertexClient())
+
+    @app.middleware("http")
+    async def workspace_identity(request: Request, call_next):
+        if not request.url.path.startswith("/api/"):
+            return await call_next(request)
+        token = request.headers.get(WORKSPACE_HEADER)
+        use_cookie = token is None
+        if use_cookie:
+            token = request.cookies.get(WORKSPACE_COOKIE)
+            if not token or not WORKSPACE_ID.fullmatch(token):
+                token = None
+                if request.url.path in ("/api/fixtures", "/api/analyze"):
+                    token = str(uuid4())
+        elif not WORKSPACE_ID.fullmatch(token):
+            return JSONResponse({"detail": {"code": "invalid_workspace", "message": "Use a valid workspace identifier."}},
+                                status_code=400, headers={"Cache-Control": "no-store"})
+
+        request.state.workspace_key = token
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        if use_cookie and token is not None:
+            # Set this even on a failed first analysis so its draft can be recovered.
+            response.set_cookie(WORKSPACE_COOKIE, token, max_age=WORKSPACE_TTL_SECONDS, path="/api",
+                                httponly=True, samesite="strict",
+                                secure=request.url.scheme == "https" or bool(os.environ.get("K_SERVICE")))
+        return response
 
     @app.exception_handler(domain.DomainError)
     async def invalid_domain(_: Request, exc: domain.DomainError):
@@ -345,25 +432,40 @@ def create_app(client: VertexClient | None = None) -> FastAPI:
     def fixtures():
         return {"packets": [json.loads(p.read_text()) for p in sorted((ROOT / "fixtures").glob("*.json"))]}
 
+    @app.get("/api/workspace/current")
+    def current_review(http_request: Request):
+        with workspaces.lookup(http_request.state.workspace_key) as workspace:
+            if workspace is None:
+                return {"run": None}
+            with workspace.lock:
+                return {"run": view(workspace.current) if workspace.current is not None else None}
+
     @app.post("/api/analyze")
-    def analyze(packet: Packet):
-        return workspace.analyze(packet.model_dump())
+    def analyze(packet: Packet, http_request: Request):
+        data = packet.model_dump()
+        domain.validate_packet(data)
+        with workspaces.use(http_request.state.workspace_key, create=True) as workspace:
+            return workspace.analyze(data)
 
     @app.patch("/api/runs/{run_id}/fields")
-    def correct_fields(run_id: str, request: Corrections):
-        return workspace.correct(run_id, request)
+    def correct_fields(run_id: str, request: Corrections, http_request: Request):
+        with workspaces.use(http_request.state.workspace_key) as workspace:
+            return workspace.correct(run_id, request)
 
     @app.post("/api/runs/{run_id}/approve-clarification")
-    def approve_clarification(run_id: str, request: Approval):
-        return workspace.approve(run_id, request)
+    def approve_clarification(run_id: str, request: Approval, http_request: Request):
+        with workspaces.use(http_request.state.workspace_key) as workspace:
+            return workspace.approve(run_id, request)
 
     @app.post("/api/runs/{run_id}/reopen")
-    def reopen_draft(run_id: str, request: ExpectedVersions):
-        return workspace.reopen(run_id, request)
+    def reopen_draft(run_id: str, request: ExpectedVersions, http_request: Request):
+        with workspaces.use(http_request.state.workspace_key) as workspace:
+            return workspace.reopen(run_id, request)
 
     @app.get("/api/runs/{run_id}/export")
-    def export(run_id: str):
-        return workspace.export(run_id)
+    def export(run_id: str, http_request: Request):
+        with workspaces.use(http_request.state.workspace_key) as workspace:
+            return workspace.export(run_id)
 
     dist = ROOT / "frontend" / "dist"
     if dist.is_dir() and (dist / "index.html").is_file():

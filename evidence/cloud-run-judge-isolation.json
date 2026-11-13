@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "url": "https://revisiongate-266196031355.us-east1.run.app",
+  "started_at": "2026-11-13T23:17:43.312561+00:00",
+  "finished_at": "2026-11-13T23:17:55.767507+00:00",
+  "actor": "automated synthetic QA",
+  "contexts": 1,
+  "independent_tabs": 2,
+  "fixture": "01_conflicted",
+  "overlap_ms": 4504,
+  "provider": "Google Cloud Vertex AI",
+  "distinct_edits_exported": true,
+  "both_quotes_blocked": true,
+  "cross_tab_exports_rejected": true,
+  "judge_b_rerun_preserved_judge_a_export": true,
+  "judge_b_previous_export_invalidated": true,
+  "javascript_errors": 0,
+  "exports": [
+    {
+      "judge": "A",
+      "sha256": "75237a0cd40af9965d253cc309cdf8a6aa6710bf6882d2099c99aa972738b571",
+      "question_count": 3
+    },
+    {
+      "judge": "B",
+      "sha256": "ce13b6c905aa6f6a06573488111124b940e672243eed430a22f73949b1b524fc",
+      "question_count": 3
+    }
+  ],
+  "revision": "revisiongate-00002-4sz"
+}

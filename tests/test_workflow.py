@@ -8,12 +8,14 @@ import json
 from copy import deepcopy
 from pathlib import Path
 from threading import Event, Thread
+from uuid import uuid4
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from google.auth.credentials import AnonymousCredentials
+from backend import main as backend_main
 from backend.vertex import VertexClient
 
 MODEL_ID = "gemini-3.5-flash"
@@ -244,6 +246,8 @@ def test_correct_omission_failed_redraft_recovery_and_invalidation(workflow):
 
 def test_superseded_inflight_run_cannot_commit(workflow):
     api, peer = workflow
+    # Both overlapping requests belong to the same tab, even before either returns.
+    api.headers["X-RevisionGate-Workspace"] = str(uuid4())
     arrived, resume = Event(), Event()
     peer.hold = (arrived, resume)
     result = []
@@ -264,3 +268,225 @@ def test_request_size_and_synthetic_contract(workflow):
     assert api.post("/api/analyze", json={**packet(), "synthetic": False}).status_code == 422
     assert api.post("/api/analyze", content=b"x" * 65537).status_code == 413
     assert not peer.stages
+
+
+def test_judges_review_identical_packets_concurrently(workflow):
+    api, peer = workflow
+    alice_key, bob_key = str(uuid4()), str(uuid4())
+    api.headers["X-RevisionGate-Workspace"] = alice_key
+    with TestClient(api.app, headers={"X-RevisionGate-Workspace": bob_key}) as bob:
+        arrived, resume = Event(), Event()
+        peer.hold = (arrived, resume)
+        responses = []
+        thread = Thread(target=lambda: responses.append(api.post("/api/analyze", json=packet())))
+        thread.start()
+        try:
+            assert arrived.wait(3)
+            b, b_route = start(bob)
+        finally:
+            resume.set()
+            thread.join(5)
+        assert not thread.is_alive() and len(responses) == 1
+        assert responses[0].status_code == 200
+        a = responses[0].json()
+        a_route = "/api/runs/" + a["run_id"]
+        assert a_route != b_route
+        assert a["versions"]["source_hash"] == b["versions"]["source_hash"]
+
+        # Distinct edits on the same fixture must lead to two separate, valid approvals.
+        a_form, b_form = review(a), review(b)
+        a_form["questions"][0]["question"] += " Please specify the release for batch A."
+        b_form["questions"][0]["question"] += " Please specify the release for batch B."
+        for browser, route, form in [(api, a_route, a_form), (bob, b_route, b_form)]:
+            assert browser.post(route + "/approve-clarification", json=form).status_code == 200
+        for browser, route, form in [(api, a_route, a_form), (bob, b_route, b_form)]:
+            downloaded = browser.get(route + "/export")
+            assert downloaded.status_code == 200
+            exported = downloaded.json()
+            assert exported["questions"] == form["questions"]
+            assert exported["clarification"]["approval"]["run_id"] == exported["run_id"]
+            assert route.endswith(exported["run_id"])
+            assert exported["quote_readiness"] == "blocked"
+            assert alice_key not in downloaded.text and bob_key not in downloaded.text
+
+        expected_b = bob.get(b_route + "/export").content
+        peer.failure = "timeout"
+        assert api.post("/api/analyze", json=packet()).status_code == 504
+        assert api.get(a_route + "/export").status_code == 409
+        assert bob.get(b_route + "/export").content == expected_b
+        peer.failure = None
+        start(api, packet("03_complete"))
+        assert bob.get(b_route + "/export").content == expected_b
+
+
+def test_cross_judge_endpoints_hide_both_runs(workflow):
+    api, _ = workflow
+    # Two cookie-aware clients can start directly at /api/analyze.
+    with TestClient(api.app) as other:
+        mine, _ = start(api)
+        theirs, route = start(other)
+        assert api.cookies.get("revisiongate_workspace") != other.cookies.get("revisiongate_workspace")
+        for response in [
+            api.patch(route + "/fields", json={**versions(theirs), "corrections": []}),
+            api.post(route + "/approve-clarification", json=review(theirs)),
+            api.post(route + "/reopen", json=versions(theirs)),
+            api.get(route + "/export"),
+        ]:
+            assert response.status_code == 409
+            detail = response.json()["detail"]
+            assert detail["code"] == "superseded_run" and "current_run" not in detail
+            assert mine["run_id"] not in response.text and theirs["run_id"] not in response.text
+        assert other.post(route + "/approve-clarification", json=review(theirs)).status_code == 200
+        assert other.get(route + "/export").status_code == 200
+        assert api.get(route + "/export").status_code == 409
+
+
+def test_header_separates_tabs_even_when_a_cookie_is_shared(workflow):
+    api, _ = workflow
+    cookie_run, cookie_route = start(api)
+    assert api.cookies.get("revisiongate_workspace")
+    key = str(uuid4())
+    api.headers["X-RevisionGate-Workspace"] = key
+    tab_run, tab_route = start(api, packet("02_material_changed"))
+    assert api.get(cookie_route + "/export").status_code == 409
+    assert api.post(tab_route + "/approve-clarification", json=review(tab_run)).status_code == 200
+    del api.headers["X-RevisionGate-Workspace"]
+    assert api.get(tab_route + "/export").status_code == 409
+    assert api.post(cookie_route + "/approve-clarification", json=review(cookie_run)).status_code == 200
+    assert api.get(cookie_route + "/export").status_code == 200
+
+
+def test_first_failed_analysis_issues_cookie_for_redraft(workflow):
+    api, peer = workflow
+    with TestClient(api.app, base_url="https://testserver") as fresh_browser:
+        peer.failure = "unknown_ref"
+        failed = fresh_browser.post("/api/analyze", json=packet())
+        assert failed.status_code == 502
+        cookie = failed.headers["set-cookie"].lower()
+        assert "httponly" in cookie and "samesite=strict" in cookie and "secure" in cookie
+        run = failed.json()["detail"]["current_run"]
+        peer.failure = None
+        fixed = fresh_browser.patch("/api/runs/" + run["run_id"] + "/fields",
+                                    json={**versions(run), "corrections": []})
+        assert fixed.status_code == 200
+        assert fixed.json()["analysis"]["status"] == "succeeded"
+
+
+def test_invalid_header_cannot_fall_back_to_cookie(workflow):
+    api, _ = workflow
+    run, route = start(api)
+    assert api.post(route + "/approve-clarification", json=review(run)).status_code == 200
+    response = api.get(route + "/export", headers={"X-RevisionGate-Workspace": "invalid"})
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "invalid_workspace"
+    assert api.get(route + "/export").status_code == 200
+
+
+def test_capacity_and_expiry_keep_inflight_and_active_reviews(monkeypatch, workflow):
+    api, peer = workflow
+    clock = [1000]
+    monkeypatch.setattr(backend_main, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(backend_main, "MAX_WORKSPACES", 1)
+    monkeypatch.setattr(backend_main, "WORKSPACE_TTL_SECONDS", 10)
+    # Public fixtures and unknown run URLs must not consume the only available slot.
+    with TestClient(api.app) as other:
+        assert api.get("/api/fixtures").status_code == 200 and api.cookies.get("revisiongate_workspace")
+        assert other.get("/api/fixtures").status_code == 200 and other.cookies.get("revisiongate_workspace")
+        unknown = "/api/runs/" + str(uuid4()) + "/export"
+        assert other.get(unknown).status_code == 409
+        arrived, resume = Event(), Event()
+        peer.hold = (arrived, resume)
+        responses = []
+        thread = Thread(target=lambda: responses.append(api.post("/api/analyze", json=packet())))
+        thread.start()
+        try:
+            assert arrived.wait(3)
+            clock[0] += 11
+            full = other.post("/api/analyze", json=packet())
+            assert full.status_code == 503
+            assert full.json()["detail"]["code"] == "workspace_capacity"
+        finally:
+            resume.set()
+            thread.join(5)
+        assert len(responses) == 1 and responses[0].status_code == 200
+        run = responses[0].json()
+        route = "/api/runs/" + run["run_id"]
+        assert api.post(route + "/approve-clarification", json=review(run)).status_code == 200
+        clock[0] += 8
+        assert api.get(route + "/export").status_code == 200
+        clock[0] += 3
+        assert other.post("/api/analyze", json=packet()).status_code == 503
+        clock[0] += 8
+        start(other)
+        expired = api.get(route + "/export")
+        assert expired.status_code == 409 and "current_run" not in expired.json()["detail"]
+
+
+def test_refresh_loads_only_current_workspace_and_tracks_approval(workflow):
+    api, peer = workflow
+    current = "/api/workspace/current"
+    mine, route = start(api)
+    # The cookie-backed workspace and a second tab in that browser have distinct reviews.
+    tab_headers = {"X-RevisionGate-Workspace": str(uuid4())}
+    assert api.get(current, headers=tab_headers).json() == {"run": None}
+    second = api.post("/api/analyze", headers=tab_headers, json=packet("03_complete")).json()
+    assert api.get(current, headers=tab_headers).json() == {"run": second}
+    mine_before_approval = api.get(current)
+    assert mine_before_approval.json() == {"run": mine}
+    assert mine_before_approval.headers["cache-control"] == "no-store"
+
+    edited = review(mine)
+    edited["questions"][0]["question"] += " Please confirm the release before procurement."
+    approved = api.post(route + "/approve-clarification", json=edited).json()
+    assert approved["questions"] == edited["questions"]
+    assert approved["allowed_actions"]["download_export"]
+    assert api.get(current).json() == {"run": approved}
+    assert api.get(current, headers=tab_headers).json() == {"run": second}
+
+    reopened = api.post(route + "/reopen", json=versions(approved)).json()
+    assert reopened["clarification"]["approval"] is None
+    assert api.get(current).json() == {"run": reopened}
+    assert peer.stages == ["smoke", "extract", "draft", "extract", "draft"]
+    refreshed_run, _ = start(api, packet("02_material_changed"))
+    assert api.get(current).json() == {"run": refreshed_run}
+    assert api.get(route + "/export").status_code == 409
+
+
+def test_refresh_reads_inflight_analysis_without_starting_another(workflow):
+    api, peer = workflow
+    api.headers["X-RevisionGate-Workspace"] = str(uuid4())
+    arrived, resume = Event(), Event()
+    peer.hold = (arrived, resume)
+    responses = []
+    thread = Thread(target=lambda: responses.append(api.post("/api/analyze", json=packet())))
+    thread.start()
+    try:
+        assert arrived.wait(3)
+        running = api.get("/api/workspace/current").json()["run"]
+        assert running["analysis"]["status"] == "running"
+        assert not running["allowed_actions"]["approve_clarification"]
+        assert peer.stages == ["smoke", "extract"]
+    finally:
+        resume.set()
+        thread.join(5)
+    assert responses[0].status_code == 200
+    assert responses[0].json()["run_id"] == running["run_id"]
+    assert api.get("/api/workspace/current").json() == {"run": responses[0].json()}
+    assert peer.stages == ["smoke", "extract", "draft"]
+
+
+def test_refresh_of_unknown_or_expired_workspace_uses_no_capacity(monkeypatch, workflow):
+    api, peer = workflow
+    clock = [1000]
+    monkeypatch.setattr(backend_main, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(backend_main, "MAX_WORKSPACES", 1)
+    monkeypatch.setattr(backend_main, "WORKSPACE_TTL_SECONDS", 15)
+    current = "/api/workspace/current"
+    other = {"X-RevisionGate-Workspace": str(uuid4())}
+    assert api.get(current).json() == {"run": None}
+    assert api.get(current, headers=other).json() == {"run": None}
+    assert not peer.stages
+    start(api)
+    clock[0] += 16
+    assert api.get(current).json() == {"run": None}
+    assert api.post("/api/analyze", headers=other, json=packet()).status_code == 200

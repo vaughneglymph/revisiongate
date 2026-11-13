@@ -24,8 +24,8 @@ export type ReviewScreenProps = {
   run: Run | null;
   /** Container state */
   questions: Question[];
-  /** Wording kept from a draft that was cleared by a correction. Shown read-only. */
-  previousDraft?: Question[];
+  /** Wording retained for reference when its original draft is unavailable. */
+  previousDraft?: string[];
   reviewing: boolean;
   analyzing: boolean;
   busy: string;
@@ -492,7 +492,7 @@ export function ReviewScreen(p: ReviewScreenProps) {
 
     {p.previousDraft && p.previousDraft.length > 0 && <details className="rg-provenance rg-previous">
       <summary>{copy.draft.previousHeading}<ChevronDown /></summary>
-      {p.previousDraft.map(q => <p key={q.finding_id}>{q.question}</p>)}
+      {p.previousDraft.map((wording, index) => <p key={index}>{wording}</p>)}
     </details>}
 
     <footer className="rg-actionbar">

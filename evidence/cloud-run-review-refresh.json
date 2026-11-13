@@ -1,0 +1,23 @@
+{
+  "result": "passed",
+  "service": "https://revisiongate-266196031355.us-east1.run.app",
+  "started_at": "2026-11-13T23:23:55+00:00",
+  "finished_at": "2026-11-13T23:24:08+00:00",
+  "actor": "automated synthetic QA",
+  "independent_judge_tabs": 2,
+  "fixture": "02_material_changed",
+  "analyze_requests_per_tab": [
+    1,
+    1
+  ],
+  "distinct_unsaved_edits_restored": true,
+  "empty_edit_restored": true,
+  "selected_packet_restored": true,
+  "new_opener_tab_isolated": true,
+  "one_approved_one_unapproved_after_reload": true,
+  "identical_approved_download_after_reload": true,
+  "reopened_unapproved_edits_restored": true,
+  "approved_export_sha256": "08f0e71b7a7c13c18a708a8e04aa9892c51c5eabc70c27fa6f6111d86da23f02",
+  "javascript_errors": 0,
+  "revision": "revisiongate-00003-gg8"
+}
