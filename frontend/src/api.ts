@@ -1,6 +1,9 @@
 import type { Correction, Packet, Question, Run } from "./types";
 import { sourceIds } from "./types";
 
+// Keep the workspace with this page's review. Duplicating a tab also starts a fresh review.
+const workspaceId = crypto.randomUUID();
+
 export class ApiError extends Error {
   constructor(message: string, public status: number, public currentRun?: Run) { super(message); }
 }
@@ -8,9 +11,11 @@ export class ApiError extends Error {
 async function request(path: string, method = "GET", body?: unknown): Promise<Response> {
   let response: Response;
   try {
+    const headers = new Headers({ "X-RevisionGate-Workspace": workspaceId });
+    if (body !== undefined) headers.set("Content-Type", "application/json");
     response = await fetch(path, {
       method,
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store",
     });

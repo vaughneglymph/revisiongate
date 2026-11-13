@@ -6,7 +6,7 @@ All four fixtures passed live Vertex verification. The [recorded analysis](evide
 
 ## Hosted hackathon demo
 
-[Open RevisionGate on Cloud Run](https://revisiongate-266196031355.us-east1.run.app). Visitors can select a synthetic packet and run live Vertex AI analysis without signing in. The shared demo keeps one current review in memory, so starting a new analysis supersedes any review already in progress. Download the approved packet before starting the next demo.
+[Open RevisionGate on Cloud Run](https://revisiongate-266196031355.us-east1.run.app). Judges can review the same or different synthetic packets simultaneously without signing in. Each tab has its own findings, editable questions, approval and download. Analyzing again replaces the previous review in that tab. Refreshing or closing the page ends access to that review, so download the approved packet first.
 
 The service runs in `us-east1` with one instance at most, a single backend worker and scale-to-zero enabled. The runtime uses its attached service account for Vertex AI. The source build packages the production frontend, backend, synthetic fixtures, prompts and extraction schema.
 
@@ -37,7 +37,7 @@ In the optional root `.env`, set `GOOGLE_CLOUD_PROJECT` to your project ID if AD
 .venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open [the review page](http://127.0.0.1:8000). FastAPI serves the built React app and API on the same origin. For frontend development, run the backend on port 8000 and `npm --prefix frontend run dev` in another terminal. Use one backend worker for this single-estimator demo.
+Open [the review page](http://127.0.0.1:8000). FastAPI serves the built React app and API on the same origin. For frontend development, run the backend on port 8000 and `npm --prefix frontend run dev` in another terminal. Use one backend worker so requests for an in-memory review reach the same process.
 
 ## Review a packet
 
@@ -57,7 +57,9 @@ A missing extracted mandatory value is a provisional gap with a pending semantic
 
 ## API and storage
 
-The backend keeps one current run in memory. A new valid analysis supersedes that run before inference, including when the new request later fails. Server restarts discard the workspace. Downloaded files are portable snapshots. Local demo use assumes one estimator and one server process.
+The backend keeps one current run per workspace in memory. The web app generates a random workspace key for each page and sends it in the `X-RevisionGate-Workspace` header. API clients can instead retain the session cookie across requests. Every run operation checks the workspace and run ID before accessing review data. A new valid analysis supersedes that workspace's prior run before inference, including when the new request later fails.
+
+Inactive workspaces expire after two hours. The service accepts up to 128 workspaces at once and lets active requests finish before cleanup. Instance restarts and scale-to-zero clear in-memory reviews. Downloaded packets are portable snapshots.
 
 | Method and path | Input and result |
 |---|---|
