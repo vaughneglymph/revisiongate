@@ -1,0 +1,15 @@
+{
+  "result": "blocked",
+  "timestamp": "2026-11-13T22:16:54.064+00:00",
+  "stage": "configuration",
+  "code": "ibm_not_configured",
+  "message": "Configure the server\u2019s IBM connection and retry analysis.",
+  "requested_model": "ibm/granite-4-h-small",
+  "api_version": "2024-10-08",
+  "missing_backend_variables": [
+    "IBM_CLOUD_API_KEY",
+    "WATSONX_PROJECT_ID",
+    "WATSONX_URL",
+    "WATSONX_MODEL_ID"
+  ]
+}

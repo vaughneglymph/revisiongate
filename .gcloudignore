@@ -1,0 +1,2 @@
+# Upload the same production sources that enter the image build context.
+#!include:.dockerignore

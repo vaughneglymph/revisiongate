@@ -1,0 +1,85 @@
+CLAUDE FABLE HANDOFF
+RevisionGate brand copy and interface design
+
+Act as the product designer, brand designer, and UX writer for RevisionGate. Own how the product looks, reads, and feels. Deliver a polished presentation layer that GPT can connect to the application logic. Make reasonable design decisions and complete the work without stopping for optional preferences.
+
+PRODUCT CONTEXT
+RevisionGate helps an estimator at a small Michigan CNC manufacturer review an RFQ before estimating. An RFQ can request revision C and material 6061-T6 while its drawing says revision B and 7075-T6; the finish can be missing. The product surfaces conflicting requirements, shows source passages, and prepares questions for the customer. The estimator reviews and approves a clarification packet. That approval never resolves conflicting engineering requirements or makes a blocked RFQ ready to quote.
+
+Use the accompanying WORKBOOK.md, fixtures, and handoffs/SHARED_CONTRACT.json when supplied. The essentials are repeated below so you can begin immediately.
+
+YOUR OWNERSHIP
+1. Brand feeling, visual identity, logo, palette, typography, spacing, and icon treatment.
+2. Product messaging, interface copy, helper text, error wording, and concise demo captions.
+3. Desktop-first review layout with usable laptop and mobile adaptations.
+4. Presentational components and visible loading, empty, review, error, approval, and export states.
+5. Accessibility and visual consistency across those states.
+
+GPT OWNS THE DECISIONS
+GPT owns IBM authentication and Granite calls, schemas, evidence validation, comparison rules, workflow state, approval guards, persistence, exports, and tests. Render state and invoke callbacks from the shared contract. Do not infer readiness, compare materials, clear blockers, call IBM, store credentials, or simulate successful API results in production components.
+
+DESIGN DIRECTION
+Feeling: calm, precise, practical, and dependable. The reference is a well-designed engineering instrument used daily by a busy estimator. Make the real review task the visual focus. Avoid decorative dashboards, distracting motion, robots, sparkles, automotive-brand references, and generic AI imagery.
+
+Starting palette to refine and check in actual combinations:
+- Deep navy #132238 for primary text and navigation.
+- Teal #007F7A for primary actions.
+- Off-white #F5F7F9 for surfaces; white for documents.
+- Amber #925B00 for attention; red #B42318 for blocking conflicts.
+Use status text and icons as well as color. Choose a readable sans-serif, tabular numbers, and optional monospace for document identifiers. Check accessible text contrast rather than assuming every palette combination works.
+
+LOGO TASKS
+Explore three quick directions based on a gate, aligned document edges, or a compact RG construction. Select one that best expresses document clarity and controlled progress. Keep it legible at small sizes.
+Deliver an original horizontal wordmark, icon-only mark, monochrome version, reversed version, and favicon as clean SVG files with sensible viewBox values. Include a short usage note for minimum size, clear space, and light/dark backgrounds. Keep an editable master. Do not imply certification or automatic engineering approval through the symbol or supporting copy.
+
+COPY TASKS
+Write a compact voice guide and a complete copy inventory keyed to component/state names. Include:
+- Product descriptor and one-sentence introduction.
+- Heading, supporting text, and the three primary action labels.
+- Packet selection and synthetic-demo labels.
+- Revision conflict, material conflict, missing finish, and Needs review explanations.
+- Evidence labels that distinguish a source passage being located from its meaning being confirmed by a worker.
+- Loading steps, empty states, extraction failures, timeout/retry, and manual-correction guidance.
+- Reviewed-draft, stale-draft, approval, awaiting-response, and export confirmations.
+- A concise product description and six demo-video captions. Keep workflow meanings consistent with GPT's implementation.
+
+Baseline copy you may improve without changing its meaning:
+Headline: Catch RFQ conflicts before quoting starts.
+Actions: Analyze packet; Review evidence; Approve clarification packet.
+Blocked message: Quote blocked. Customer clarification required.
+Approval confirmation: Clarification approved. Requirements remain unresolved.
+Evidence label before semantic review: Source passage located. Confirm its meaning.
+No-blocker state: No blockers detected. Estimator review required.
+
+Do not invent measured accuracy, customer testimonials, time savings, revenue, certifications, or deployment claims. Any 20-to-five-minute benefit must be labeled a pilot target, not a result. Keep API keys, internal JSON, and model settings outside the normal estimator workflow. A small real-run provenance panel is acceptable for the hackathon demonstration.
+
+REVIEW SCREEN
+Build one primary review screen, not a marketing site or a dashboard suite.
+- Top: compact logo, packet selector, part identifier, and persistent quote-readiness label.
+- Left: readable source documents with line numbers and highlighted evidence.
+- Right: findings, opposing values, editable clarification questions, review controls, and approval/export action.
+- Show revision C versus B and 6061-T6 versus 7075-T6 together. Do not hide the comparison in multiple dialogs.
+- Review evidence opens all relevant comparisons so the happy path stays three clicks: Analyze packet -> Review evidence -> Approve clarification packet and download.
+- A clarification approval can look complete while quote readiness visibly remains Blocked.
+- Distinguish an actual error from a missing requirement and from a successful draft approval.
+
+Show these states in a labeled development preview: idle; analyzing; conflicting packet; source awaiting review; extraction error; no detected blockers pending human review; edited draft awaiting approval; stale draft requiring refresh; approved clarification with quote blocked; awaiting customer response; clearly labeled recorded-run replay.
+
+INTERFACE BOUNDARY
+Use SHARED_CONTRACT.json as the shared source for status meanings and action names. GPT is responsible for the final typed view-model. Until supplied, use presentational props and labeled synthetic previews; expose actions as callbacks such as onAnalyzePacket, onReviewEvidence, onCorrectField, onEditDraft, onApproveClarification, and onDownloadExport. The state comes from props. Do not implement a second business-state machine in visual components.
+
+Keep design tokens, logo assets, copy strings, and view components separate from service code. Preserve the repository's existing framework and file conventions. If working in the same checkout as GPT, coordinate ownership before editing shared files and avoid changing the backend, fixtures, extraction prompts, schema, dependency manifests, or generated lockfiles.
+
+ACCESSIBILITY
+Provide labeled controls, visible keyboard focus, logical tab order, keyboard-accessible evidence review and approval, readable contrast, and text announcements for processing and failures. Use modest motion and respect reduced motion. Keep source text readable at normal laptop sizes; on narrow screens stack the two panes without losing finding-to-source context.
+
+DELIVERABLES
+1. One chosen design direction with a short rationale and design tokens.
+2. The SVG logo set and usage note.
+3. A complete copy inventory for the states above.
+4. The responsive review interface and reusable presentational components, or an exact implementation specification if this environment cannot edit the app.
+5. A state gallery using clearly labeled synthetic data.
+6. A handoff identifying files, component props, callbacks, and any open API mapping items for GPT.
+
+QUALITY BAR
+The interface must make the contradiction and next action clear within seconds. Approval wording must never suggest that engineering conflicts are solved. Finish the design with one coherent direction and explain any actual limitation plainly. Do not claim that a styled preview is a functioning IBM integration.

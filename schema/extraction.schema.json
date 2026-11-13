@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RevisionGate source extraction contract",
+  "description": "Structural contract only. The backend and human reviewer must verify source identity, exact spans, semantic support, completeness, and readiness rules separately.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "packet_id",
+    "sources"
+  ],
+  "properties": {
+    "packet_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "RFQ",
+        "DRAWING",
+        "CHECKLIST"
+      ],
+      "properties": {
+        "RFQ": {
+          "$ref": "#/$defs/documentFields"
+        },
+        "DRAWING": {
+          "$ref": "#/$defs/documentFields"
+        },
+        "CHECKLIST": {
+          "$ref": "#/$defs/documentFields"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "evidenceSpan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "line_id",
+        "char_start",
+        "char_end",
+        "quote"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "enum": [
+            "RFQ",
+            "DRAWING",
+            "CHECKLIST"
+          ]
+        },
+        "line_id": {
+          "type": "string",
+          "pattern": "^L[0-9]{3}$"
+        },
+        "char_start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "char_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "quote": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "textField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "evidence"
+      ],
+      "properties": {
+        "value": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceSpan"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "value": {
+                "type": "null"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "evidence": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "evidence": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "quantityField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "evidence"
+      ],
+      "properties": {
+        "value": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceSpan"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "value": {
+                "type": "null"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "evidence": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "evidence": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "documentFields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "part_id",
+        "quantity",
+        "revision",
+        "material",
+        "finish"
+      ],
+      "properties": {
+        "part_id": {
+          "$ref": "#/$defs/textField"
+        },
+        "quantity": {
+          "$ref": "#/$defs/quantityField"
+        },
+        "revision": {
+          "$ref": "#/$defs/textField"
+        },
+        "material": {
+          "$ref": "#/$defs/textField"
+        },
+        "finish": {
+          "$ref": "#/$defs/textField"
+        }
+      }
+    }
+  }
+}

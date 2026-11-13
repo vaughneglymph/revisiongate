@@ -1,0 +1,53 @@
+{
+  "contract_version": "1.0",
+  "product": "RevisionGate",
+  "purpose": "Shared design and implementation boundary for Claude Fable and GPT",
+  "ownership": {
+    "claude_fable": ["brand", "logo", "design_tokens", "copy", "layout", "presentational_components", "accessibility_appearance"],
+    "gpt": ["view_model", "api", "ibm_integration", "validation", "business_rules", "state", "approval", "export", "verification"]
+  },
+  "analysis_status": ["idle", "running", "succeeded", "failed"],
+  "quote_readiness": ["blocked", "needs_review", "no_detected_blockers_pending_human_review"],
+  "clarification_status": ["not_started", "draft_ready", "approved", "awaiting_customer_response"],
+  "finding_kind": ["conflict", "missing", "needs_review"],
+  "citation_status": ["unchecked", "valid_location", "invalid_location"],
+  "semantic_review_status": ["pending", "confirmed", "corrected"],
+  "callbacks": ["onAnalyzePacket", "onReviewEvidence", "onCorrectField", "onEditDraft", "onApproveClarification", "onDownloadExport"],
+  "canonical_copy": {
+    "analyze": "Analyze packet",
+    "review": "Review evidence",
+    "approve": "Approve clarification packet",
+    "blocked": "Quote blocked. Customer clarification required.",
+    "approved": "Clarification approved. Requirements remain unresolved.",
+    "citation_located": "Source passage located. Confirm its meaning.",
+    "no_detected_blockers_pending_human_review": "No blockers detected. Estimator review required.",
+    "recorded_run": "Recorded IBM run"
+  },
+  "view_model_required_groups": ["packet", "sources", "extracted_fields", "findings", "questions", "analysis", "quote_readiness", "clarification", "allowed_actions", "versions", "provenance"],
+  "field_location_contract": {
+    "source_ids": ["RFQ", "DRAWING", "CHECKLIST"],
+    "line_id_example": "L004",
+    "offset_unit": "Unicode code points in line body after prefix",
+    "char_end": "exclusive",
+    "schema_file": "schema/extraction.schema.json"
+  },
+  "three_click_flow": ["analyze packet", "review evidence and edit questions", "approve clarification packet and download"],
+  "invariants": [
+    "Clarification approval never resolves engineering blockers or automatically makes a quote ready.",
+    "The backend owns authoritative state and allowed actions; UI renders state and invokes callbacks.",
+    "Verbatim citation location checks do not establish semantic support.",
+    "Human review is required for every packet, including no detected blockers.",
+    "Extraction corrections or reruns invalidate old drafts and approvals.",
+    "Approval atomically saves the reviewed edited text with expected run and draft versions.",
+    "Synthetic previews and recorded execution must be visibly identified.",
+    "Expected fixture answers never enter a model request.",
+    "No invented results, confidence percentages, customer evidence, or measured ROI.",
+    "No credentials, internal JSON, or model settings in the normal estimator workflow."
+  ],
+  "integration_order": [
+    "GPT creates typed props and callback signatures from this contract.",
+    "Claude Fable designs components and states against that interface while GPT implements backend logic.",
+    "GPT connects services and authoritative state to the presentational components.",
+    "Both check wording, action availability, evidence display, keyboard use, and the blocked approval case together."
+  ]
+}

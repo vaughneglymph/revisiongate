@@ -1,0 +1,32 @@
+export const sourceIds = ["RFQ", "DRAWING", "CHECKLIST"] as const;
+export const engineeringSources = ["RFQ", "DRAWING"] as const;
+export const fieldNames = ["part_id", "quantity", "revision", "material", "finish"] as const;
+export type SourceId = typeof sourceIds[number];
+export type FieldName = typeof fieldNames[number];
+export type Value = string | number | null;
+export type Source = { source_id: SourceId; text: string };
+export type Packet = { packet_id: string; synthetic: true; sources: Source[] };
+export type Evidence = { source_id: SourceId; line_id: string; char_start: number; char_end: number; quote: string };
+export type ExtractedField = { value: Value; evidence: Evidence[] };
+export type ReviewState = "pending" | "confirmed" | "corrected";
+export type FieldState = { status: "Supported" | "Conflict" | "Missing" | "Needs review"; semantic_review_status: ReviewState };
+export type Finding = {
+  finding_id: string; kind: "conflict" | "missing" | "needs_review"; field: FieldName;
+  values: Partial<Record<SourceId, Value>>; evidence_refs: string[]; policy_refs: string[];
+  blocking: boolean; semantic_review_status: ReviewState;
+};
+export type Question = { finding_id: string; question: string; evidence_refs: string[]; policy_refs: string[] };
+export type Correction = ExtractedField & { source_id: SourceId; field: FieldName };
+export type QuoteReadiness = "blocked" | "needs_review" | "no_detected_blockers_pending_human_review";
+export type Run = {
+  run_id: string; packet: Pick<Packet, "packet_id" | "synthetic">; sources: Source[];
+  extracted_fields: Partial<Record<SourceId, Record<FieldName, ExtractedField>>>;
+  field_states: Partial<Record<SourceId, Record<FieldName, FieldState>>>;
+  findings: Finding[]; questions: Question[];
+  analysis: { status: "succeeded" | "running" | "failed" };
+  quote_readiness: QuoteReadiness;
+  clarification: { status: "not_started" | "draft_ready" | "approved" | "awaiting_customer_response"; approval: { approved_at: string } | null };
+  allowed_actions: { review_evidence: boolean; correct_fields: boolean; approve_clarification: boolean; download_export: boolean; edit_draft: boolean };
+  versions: { run_version: number; draft_version: number; source_hash: string; rule_version: string };
+  provenance: { mode: "live"; provider: string; model_id: string; started_at: string };
+};

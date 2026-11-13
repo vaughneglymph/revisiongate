@@ -1,0 +1,28 @@
+/* Chrome for the design state gallery only. Not part of the product. */
+html, body, #root { height: 100%; margin: 0 }
+body { background: #dfe5ec; font: 14px/1.5 "Inter Variable", system-ui, sans-serif; color: #132238 }
+.gal { display: grid; grid-template-columns: 250px minmax(0, 1fr); height: 100% }
+.gal-side { display: flex; flex-direction: column; gap: 14px; padding: 16px; overflow: auto; background: #fff; border-right: 1px solid #d3dae2 }
+.gal-brand { display: grid; gap: 4px }
+.gal-brand > span:last-child { font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: #4f6074 }
+.gal-warning { margin: 0; padding: 8px 10px; border: 1px dashed #925b00; border-radius: 6px; background: #fff5de; color: #5c3900; font-size: 12px }
+.gal-side ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px }
+.gal-side nav button { display: flex; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: 6px; background: none; font: inherit; font-size: 13px; text-align: left; color: #132238; cursor: pointer }
+.gal-side nav button span { font: 11px/1.9 ui-monospace, Menlo, monospace; color: #4f6074 }
+.gal-side nav button:hover { background: #eef2f6 }
+.gal-side nav button[aria-current] { background: #132238; color: #fff; font-weight: 600 }
+.gal-side nav button[aria-current] span { color: #b4c3d4 }
+.gal-side button:focus-visible, .gal-widths button:focus-visible { outline: 3px solid #1d5fd6; outline-offset: 2px }
+.gal-marks { display: flex; align-items: center; gap: 8px; margin-top: auto }
+.gal-marks span { display: grid; place-items: center; width: 56px; height: 56px; border: 1px solid #d3dae2; border-radius: 8px; background: #fff }
+.gal-marks .gal-dark { background: #132238; border-color: #132238 }
+.gal-stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 14px 16px 10px; gap: 10px }
+.gal-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px }
+.gal-head h1 { margin: 0; font-size: 18px; letter-spacing: -.01em }
+.gal-head p { margin: 2px 0 0; max-width: 90ch; color: #2f4159; font-size: 13px }
+.gal-widths { display: flex; border: 1px solid #66778b; border-radius: 6px; overflow: hidden; background: #fff }
+.gal-widths button { padding: 5px 12px; border: 0; background: none; font: inherit; font-size: 12px; font-weight: 600; text-transform: capitalize; cursor: pointer }
+.gal-widths button[aria-pressed="true"] { background: #132238; color: #fff }
+.gal-frame { flex: 1; min-height: 0; max-width: 100%; margin-inline: auto; border: 1px solid #b9c4d0; border-radius: 10px; overflow: hidden; box-shadow: 0 8px 24px rgb(19 34 56 / .12); --rg-height: 100% }
+.gal-log { margin: 0; font: 12px/1.5 ui-monospace, Menlo, monospace; color: #2f4159; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+@media (max-width: 820px) { .gal { grid-template-columns: 1fr; height: auto } .gal-side { border-right: 0 } .gal-marks { display: none } .gal-stage { height: 100vh } }

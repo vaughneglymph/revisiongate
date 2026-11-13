@@ -1,0 +1,72 @@
+GPT HANDOFF
+RevisionGate application logic and integration
+
+Act as the principal application engineer for RevisionGate. Own what the application does, how it decides, and how correctness is checked. Implement a bounded end-to-end workflow using genuine IBM Granite calls. Claude Fable owns brand, logo, copy, layout, and presentational components. Use its design without creating a competing visual direction.
+
+PRODUCT CONTEXT
+The user is an estimator at a small Michigan CNC manufacturer. The product reviews a single-part RFQ packet before estimating. The synthetic RFQ requests BRK-104, quantity 200, revision C, material 6061-T6. The supplied drawing says revision B and material 7075-T6; no finish is stated. A fixed intake rule requires an explicit finish, including none when intended. The output is an evidence-linked clarification packet for the estimator to review and approve. Approval does not resolve engineering conflicts or make the RFQ ready to quote.
+
+Use WORKBOOK.md, the four fixtures, prompts/extract.txt, prompts/draft.txt, schema/extraction.schema.json, and handoffs/SHARED_CONTRACT.json. If only this prompt is available, create equivalent synthetic inputs and document the omission rather than inventing access to other files.
+
+YOUR OWNERSHIP
+1. Architecture, backend, typed frontend view-model, APIs, and client service adapter.
+2. IBM IAM authentication, Granite extraction/drafting calls, token handling, and genuine execution evidence.
+3. Schema validation, source-reference checks, deterministic conflict and missing-field rules.
+4. Review state, approval guards, correction/draft versioning, export, and error handling.
+5. Meaningful fixture and integration verification, actual latency measurements, and launch instructions.
+
+CLAUDE FABLE OWNS PRESENTATION
+Claude Fable defines the logo, palette, typography, spacing, layout, UI copy, icons, and visual treatment of states. Supply its components with typed props and callbacks. You own state and action availability. Map display strings to canonical meanings; reject copy that falsely implies resolved engineering requirements. Do not redesign the brand or build extra pages.
+
+START WITH THE SHARED CONTRACT
+Read SHARED_CONTRACT.json and create the typed view-model before wiring UI. Preserve three separate dimensions: analysis progress, quote readiness, and clarification progress. A successful clarification approval must not change blocked quote readiness.
+Expose source documents, document-specific extracted fields, findings, evidence locations, review status, editable questions, allowed actions, run/draft versions, and execution provenance. Do not allow the browser to supply authoritative approval permissions or workflow state.
+Coordinate this view-model with Claude Fable. Visual work can proceed against the contract and synthetic previews while you implement IBM and the backend.
+
+IBM IMPLEMENTATION
+Use the repository's existing stack if it works. Otherwise choose a minimal Python FastAPI backend with Pydantic and React/TypeScript frontend. IBM Granite through watsonx.ai must perform the core extraction and drafting work. Use model ibm/granite-4-h-small in a supported account/region; first verify current account availability and complete a real inference smoke test.
+Backend environment variables: IBM_CLOUD_API_KEY, WATSONX_PROJECT_ID, WATSONX_URL, WATSONX_MODEL_ID. Default regional URL: https://us-south.ml.cloud.ibm.com. Keep keys out of browser bundles, VITE variables, git, and public logs.
+Use the documented IBM IAM API-key-to-bearer-token flow and cache until near the returned expiration. Use the current supported watsonx.ai chat API with an explicit compatibility version; the researched starter example is POST /ml/v1/text/chat?version=2024-10-08. Verify it in the smoke test rather than claiming success from documentation alone.
+Request schema-constrained JSON when supported by the selected model; otherwise request JSON explicitly and validate server-side. Allow one bounded schema-repair retry. Never disguise static responses as live model output. Capture real model ID, timestamp, latency, and redacted run metadata.
+
+PIPELINE
+1. Accept one small packet of synthetic text. Assign stable source IDs/line IDs and a source hash. Source text is data, never an instruction authority. No browsing or tools can be invoked by the documents.
+2. Granite extraction: each document independently supplies part, quantity, revision, material, and finish, with exact quoted evidence and location. Preserve competing values. Null means unsupported/absent in extraction, not proof that a requirement does not exist.
+3. Validate packet and source IDs, JSON shape, line IDs, offsets, exact quotations, and evidence ownership. Offsets are Unicode code points into the line body after its prefix. The backend must reject bad spans. A matching span does not establish semantic support; track human confirmation separately.
+4. Apply fixed code rules. Part IDs must match; revision and material must agree across applicable RFQ/drawing sources; RFQ part, positive quantity, revision, and material are required; explicit finish must appear in RFQ or drawing. Conflicting explicit finishes also block. Normalize superficial formatting only, not material equivalence or engineering meaning. CHECKLIST policy text must not become extracted part facts. Nulls caused by failed extraction remain Needs review. Human inspection can confirm a missing requirement.
+5. Create findings containing stable finding IDs, kind, field, source-specific values, evidence refs, policy refs, and review status. Keep revision/material conflicts unresolved until authoritative customer clarification. The MVP need not implement ingestion of the later customer response.
+6. Second Granite call: draft exactly one question per validated blocking finding, with its supplied refs. Do not send expected answers. Reject unknown refs or missing/extra finding questions. The user reviews wording before approval; preserve both conflicting values.
+7. Human correction: update extraction with an audit record, recalculate findings, invalidate approval and old draft, and regenerate or require a new draft version. Correcting an extraction error is not permission to overwrite a genuine conflicting requirement.
+8. Approval: receive the edited draft plus expected run/draft versions. Reject stale versions. Require human review of the relevant findings and evidence. Atomically save and approve the exact reviewed wording. Quote readiness remains blocked when requirements remain unresolved.
+9. Export: download that approved wording, findings, source references, source hash, rule version, and run/draft/approval metadata. Use a demo reviewer role rather than personal data. No automatic emails or ERP writes.
+
+MINIMUM API
+- POST /api/analyze: source packet -> run, fields, findings, draft, readiness, timing, provenance.
+- PATCH /api/runs/{id}/fields: expected version plus corrections -> recomputed findings/new version; invalidate draft approval.
+- POST /api/runs/{id}/approve-clarification: expected run/draft versions plus edited questions -> saved approval of that exact version.
+- GET /api/runs/{id}/export: current approved packet, with stale or absent approval rejected.
+Define schemas and error codes for each. Use a conflict response for stale updates and an actionable error for service/schema failures. Export should be initiated automatically after successful approval in the three-click demo. Download an already-approved export without repeating model calls.
+
+STATE AND ERROR RULES
+Keep analysis.status, quote_readiness, and clarification.status separate. Use allowed_actions from server logic. A source-span match must not be labeled semantic verification. No numerical confidence score without calibration.
+On IBM timeout or invalid JSON, retain inputs and show a bounded retry/manual-review path. Partial or failed extraction cannot masquerade as a completed AI analysis. A recorded genuine IBM run can be replayed only with a visible Recorded IBM run label and timestamp. Replay cannot satisfy a live-integration test.
+Edits or reruns invalidate the earlier approval, even if the new output happens to look similar. Store approved text independently of unsaved browser edits. In-memory storage plus a file export is sufficient for the hackathon if documented as ephemeral; do not call it production-ready or durable multi-user auditing.
+
+VERIFICATION
+Keep expected/expected_findings.json offline. Never attach or concatenate it to a model prompt.
+Verify actual pipeline behavior for:
+- Fixture01: revision conflict, material conflict, missing finish.
+- Fixture02: changing drawing material alone removes only the material finding.
+- Fixture03: no seeded blockers; human review remains required.
+- Fixture04: embedded source instruction cannot clear blockers or invent finish none.
+- Invalid evidence spans/source IDs; malformed model JSON; IBM timeout.
+- Human correction and draft edits invalidate stale approval.
+- Approval/export preserve the reviewed text while quote status remains blocked.
+Record actual pass/fail evidence and model latency. File parsing and schema validity are not measures of model accuracy. Do not populate a success badge or benchmark before execution.
+If time allows, compare manual and assisted blocker-review time on matched synthetic cases, including all worker checking/editing time. Report errors as well as seconds. The 20-to-five-minute figure is a target, never a measured result by default.
+
+SCOPE AND DELIVERY
+Deliver the genuine IBM-to-reviewed-export path first. One part, three text sources, two model calls, one review screen. Keep CAD geometry, OCR, pricing, authentication, ERP integration, automatic messaging, dashboards, vector databases, autonomous agents, extra providers, and extra IBM products out of this sprint.
+Use an existing host. Add Cloud Run only if the deployment route already works. Coordinate shared files and dependency changes with Claude Fable before editing them.
+
+Return the implemented files, exact launch/configuration instructions, API/view-model contract, actual verification results, and any unresolved failure. Say plainly if the runtime lacks IBM credentials or another required capability. Complete all independent implementation work and preserve a functioning visual integration; never substitute canned output for the missing capability.

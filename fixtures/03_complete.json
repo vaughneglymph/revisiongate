@@ -1,0 +1,18 @@
+{
+  "packet_id": "03_complete",
+  "synthetic": true,
+  "sources": [
+    {
+      "source_id": "RFQ",
+      "text": "L001 | Synthetic request for quotation; fictional business packet.\nL002 | Part: BRK-104.\nL003 | Quantity: 200 pieces.\nL004 | Required drawing revision: C.\nL005 | Required material: 6061-T6.\nL006 | Please confirm the packet before preparing a price.\nL007 | Finish: none."
+    },
+    {
+      "source_id": "DRAWING",
+      "text": "L001 | Synthetic drawing notes; text only, no CAD geometry.\nL002 | Part: BRK-104.\nL003 | Drawing revision: C.\nL004 | Material: 6061-T6.\nL005 | Dimensions are outside this prototype scope.\nL006 | Finish: none."
+    },
+    {
+      "source_id": "CHECKLIST",
+      "text": "L001 | Fictional shop intake checklist.\nL002 | Quote readiness requires matching part IDs, revision, and material across applicable sources.\nL003 | Required RFQ fields: part, quantity, revision, and material.\nL004 | A finish disposition must be explicit in RFQ or DRAWING; none is a valid disposition.\nL005 | Missing finish is a blocking missing requirement; absence never means none.\nL006 | Revision or material conflicts require customer clarification; do not choose a governing source.\nL007 | Approval applies only to the clarification packet, not engineering requirements or quote readiness.\nL008 | Every packet requires human review before use, including packets with no detected blockers."
+    }
+  ]
+}

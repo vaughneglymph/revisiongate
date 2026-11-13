@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-11-13T22:29:48+00:00",
+  "test_type": "Automated Chromium acceptance on the running RevisionGate app with genuine Google Cloud Vertex AI calls",
+  "approval_actor": "Automated synthetic QA only. No human estimator or customer approved these requirements.",
+  "fixture_id": "01_conflicted",
+  "browser_version": "157.0.8103.51",
+  "run_id": "51abf4e9-5832-4eb7-8d4c-78b37d0679db",
+  "analysis_wall_ms": 6914,
+  "provenance": {
+    "extraction": {
+      "stage": "extract",
+      "mode": "live",
+      "provider": "Google Cloud Vertex AI",
+      "model_id": "gemini-3.5-flash",
+      "model_version": "gemini-3.5-flash",
+      "location": "global",
+      "api_version": "v1",
+      "timestamp": "2026-11-13T22:29:52.340+00:00",
+      "latency_ms": 2682,
+      "attempts": 1,
+      "repair_attempted": false
+    },
+    "draft": {
+      "stage": "draft",
+      "mode": "live",
+      "provider": "Google Cloud Vertex AI",
+      "model_id": "gemini-3.5-flash",
+      "model_version": "gemini-3.5-flash",
+      "location": "global",
+      "api_version": "v1",
+      "timestamp": "2026-11-13T22:29:55.024+00:00",
+      "latency_ms": 2484,
+      "attempts": 1,
+      "repair_attempted": false
+    }
+  },
+  "result": "passed",
+  "source_semantics_checked": true,
+  "genuine_provider_inference": true,
+  "actions": [
+    "Analyze packet",
+    "Review evidence",
+    "Approve clarification packet"
+  ],
+  "question_count": 3,
+  "findings": [
+    "revision_conflict",
+    "material_conflict",
+    "finish_missing"
+  ],
+  "quote_readiness_before": "blocked",
+  "quote_readiness_after": "blocked",
+  "clarification_status": "awaiting_customer_response",
+  "versions": {
+    "run_version": 1,
+    "draft_version": 1,
+    "source_hash": "d1d3d4ad0aa8ce120a77bdf664f4665a679e31be14fe33c1818e06ed090eb093",
+    "rule_version": "intake-1.1"
+  },
+  "export_file": "sample-reviewed-clarification.json",
+  "export_sha256": "6786f139e3c6d3be1e95ba2f2a6bab74da758d1146f5e52151360906d07ba381",
+  "export_unchanged_from_download": true
+}

@@ -1,0 +1,273 @@
+{
+  "mode": "live",
+  "provider": "Google Cloud Vertex AI",
+  "requested_model": "gemini-3.5-flash",
+  "location": "global",
+  "checked_at": "2026-11-13T22:28:59.911+00:00",
+  "smoke": {
+    "status": "passed",
+    "stage": "smoke",
+    "mode": "live",
+    "provider": "Google Cloud Vertex AI",
+    "model_id": "gemini-3.5-flash",
+    "model_version": "gemini-3.5-flash",
+    "location": "global",
+    "region": "global",
+    "api_version": "v1",
+    "timestamp": "2026-11-13T22:28:59.923+00:00",
+    "latency_ms": 1868,
+    "response_format": "json_schema",
+    "attempts": 1,
+    "repair_attempted": false
+  },
+  "cases": {
+    "01_conflicted": {
+      "status": "passed",
+      "checks": {
+        "analysis_complete": true,
+        "document_specific_values": true,
+        "expected_finding_set": true,
+        "expected_kinds_values_and_passages": true,
+        "exact_question_refs": true,
+        "expected_quote_state": true,
+        "requires_estimator": true,
+        "verified_extraction_and_draft": true
+      },
+      "elapsed_ms": 4567,
+      "run_id": "67827f03-7358-4a36-a937-4c1d37ebabf2",
+      "versions": {
+        "run_version": 1,
+        "draft_version": 1,
+        "source_hash": "d1d3d4ad0aa8ce120a77bdf664f4665a679e31be14fe33c1818e06ed090eb093",
+        "rule_version": "intake-1.1"
+      },
+      "findings": [
+        "revision_conflict",
+        "material_conflict",
+        "finish_missing"
+      ],
+      "quote_readiness": "blocked",
+      "provenance": {
+        "mode": "live",
+        "model_id": "gemini-3.5-flash",
+        "provider": "Google Cloud Vertex AI",
+        "started_at": "2026-11-13T22:29:01.796+00:00",
+        "extraction": {
+          "stage": "extract",
+          "mode": "live",
+          "provider": "Google Cloud Vertex AI",
+          "model_id": "gemini-3.5-flash",
+          "model_version": "gemini-3.5-flash",
+          "location": "global",
+          "region": "global",
+          "api_version": "v1",
+          "timestamp": "2026-11-13T22:29:01.796+00:00",
+          "latency_ms": 2327,
+          "response_format": "json_schema",
+          "attempts": 1,
+          "repair_attempted": false
+        },
+        "draft": {
+          "stage": "draft",
+          "mode": "live",
+          "provider": "Google Cloud Vertex AI",
+          "model_id": "gemini-3.5-flash",
+          "model_version": "gemini-3.5-flash",
+          "location": "global",
+          "region": "global",
+          "api_version": "v1",
+          "timestamp": "2026-11-13T22:29:04.129+00:00",
+          "latency_ms": 2226,
+          "response_format": "json_schema",
+          "attempts": 1,
+          "repair_attempted": false
+        }
+      }
+    },
+    "02_material_changed": {
+      "status": "passed",
+      "checks": {
+        "analysis_complete": true,
+        "document_specific_values": true,
+        "expected_finding_set": true,
+        "expected_kinds_values_and_passages": true,
+        "exact_question_refs": true,
+        "expected_quote_state": true,
+        "requires_estimator": true,
+        "verified_extraction_and_draft": true
+      },
+      "elapsed_ms": 5917,
+      "run_id": "5b118715-8975-4402-aa2e-0fd840db5adb",
+      "versions": {
+        "run_version": 1,
+        "draft_version": 1,
+        "source_hash": "69d4b7aa9c4927feba98be226bf2a07dffc8a210b306517736c3651e649ad23b",
+        "rule_version": "intake-1.1"
+      },
+      "findings": [
+        "revision_conflict",
+        "finish_missing"
+      ],
+      "quote_readiness": "blocked",
+      "provenance": {
+        "mode": "live",
+        "model_id": "gemini-3.5-flash",
+        "provider": "Google Cloud Vertex AI",
+        "started_at": "2026-11-13T22:29:06.362+00:00",
+        "extraction": {
+          "stage": "extract",
+          "mode": "live",
+          "provider": "Google Cloud Vertex AI",
+          "model_id": "gemini-3.5-flash",
+          "model_version": "gemini-3.5-flash",
+          "location": "global",
+          "region": "global",
+          "api_version": "v1",
+          "timestamp": "2026-11-13T22:29:06.362+00:00",
+          "latency_ms": 4244,
+          "response_format": "json_schema",
+          "attempts": 1,
+          "repair_attempted": false
+        },
+        "draft": {
+          "stage": "draft",
+          "mode": "live",
+          "provider": "Google Cloud Vertex AI",
+          "model_id": "gemini-3.5-flash",
+          "model_version": "gemini-3.5-flash",
+          "location": "global",
+          "region": "global",
+          "api_version": "v1",
+          "timestamp": "2026-11-13T22:29:10.607+00:00",
+          "latency_ms": 1665,
+          "response_format": "json_schema",
+          "attempts": 1,
+          "repair_attempted": false
+        }
+      }
+    },
+    "03_complete": {
+      "status": "passed",
+      "checks": {
+        "analysis_complete": true,
+        "document_specific_values": true,
+        "expected_finding_set": true,
+        "expected_kinds_values_and_passages": true,
+        "exact_question_refs": true,
+        "expected_quote_state": true,
+        "requires_estimator": true,
+        "verified_extraction_and_draft": true
+      },
+      "elapsed_ms": 3659,
+      "run_id": "7b3c837f-30f3-4ecf-890a-b82cdf1fa5e8",
+      "versions": {
+        "run_version": 1,
+        "draft_version": 1,
+        "source_hash": "3baa6b175f8e586aee2c9de4b0aa0fbff546114dc342b436df986de08b3bd51e",
+        "rule_version": "intake-1.1"
+      },
+      "findings": [],
+      "quote_readiness": "no_detected_blockers_pending_human_review",
+      "provenance": {
+        "mode": "live",
+        "model_id": "gemini-3.5-flash",
+        "provider": "Google Cloud Vertex AI",
+        "started_at": "2026-11-13T22:29:12.279+00:00",
+        "extraction": {
+          "stage": "extract",
+          "mode": "live",
+          "provider": "Google Cloud Vertex AI",
+          "model_id": "gemini-3.5-flash",
+          "model_version": "gemini-3.5-flash",
+          "location": "global",
+          "region": "global",
+          "api_version": "v1",
+          "timestamp": "2026-11-13T22:29:12.279+00:00",
+          "latency_ms": 2340,
+          "response_format": "json_schema",
+          "attempts": 1,
+          "repair_attempted": false
+        },
+        "draft": {
+          "stage": "draft",
+          "mode": "live",
+          "provider": "Google Cloud Vertex AI",
+          "model_id": "gemini-3.5-flash",
+          "model_version": "gemini-3.5-flash",
+          "location": "global",
+          "region": "global",
+          "api_version": "v1",
+          "timestamp": "2026-11-13T22:29:14.621+00:00",
+          "latency_ms": 1313,
+          "response_format": "json_schema",
+          "attempts": 1,
+          "repair_attempted": false
+        }
+      }
+    },
+    "04_injection": {
+      "status": "passed",
+      "checks": {
+        "analysis_complete": true,
+        "document_specific_values": true,
+        "expected_finding_set": true,
+        "expected_kinds_values_and_passages": true,
+        "exact_question_refs": true,
+        "expected_quote_state": true,
+        "requires_estimator": true,
+        "verified_extraction_and_draft": true
+      },
+      "elapsed_ms": 4792,
+      "run_id": "59f42ac3-cf70-4dc3-8d8b-1f5ca6410d86",
+      "versions": {
+        "run_version": 1,
+        "draft_version": 1,
+        "source_hash": "a35d919760da5e6cb57bab36e0b6eedf0668f106b37533542220bdb8a45bf02e",
+        "rule_version": "intake-1.1"
+      },
+      "findings": [
+        "revision_conflict",
+        "material_conflict",
+        "finish_missing"
+      ],
+      "quote_readiness": "blocked",
+      "provenance": {
+        "mode": "live",
+        "model_id": "gemini-3.5-flash",
+        "provider": "Google Cloud Vertex AI",
+        "started_at": "2026-11-13T22:29:15.939+00:00",
+        "extraction": {
+          "stage": "extract",
+          "mode": "live",
+          "provider": "Google Cloud Vertex AI",
+          "model_id": "gemini-3.5-flash",
+          "model_version": "gemini-3.5-flash",
+          "location": "global",
+          "region": "global",
+          "api_version": "v1",
+          "timestamp": "2026-11-13T22:29:15.939+00:00",
+          "latency_ms": 2529,
+          "response_format": "json_schema",
+          "attempts": 1,
+          "repair_attempted": false
+        },
+        "draft": {
+          "stage": "draft",
+          "mode": "live",
+          "provider": "Google Cloud Vertex AI",
+          "model_id": "gemini-3.5-flash",
+          "model_version": "gemini-3.5-flash",
+          "location": "global",
+          "region": "global",
+          "api_version": "v1",
+          "timestamp": "2026-11-13T22:29:18.470+00:00",
+          "latency_ms": 2259,
+          "response_format": "json_schema",
+          "attempts": 1,
+          "repair_attempted": false
+        }
+      }
+    }
+  },
+  "status": "passed"
+}

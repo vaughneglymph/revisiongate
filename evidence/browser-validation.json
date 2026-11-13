@@ -1,0 +1,65 @@
+{
+  "test_type": "Chromium UI against isolated FastAPI and the Google Cloud Vertex AI test adapter (httpx.MockTransport, AnonymousCredentials)",
+  "timestamp": "2026-11-13T22:23:55+00:00",
+  "genuine_provider_inference": false,
+  "host": "127.0.0.1:8174",
+  "checks": [
+    {
+      "check": "Keyboard focus on labeled controls",
+      "result": "passed",
+      "observed": "Tab reached Synthetic packet then Analyze packet; selector had a visible focus outline."
+    },
+    {
+      "check": "Three-click approval and automatic file download",
+      "result": "passed",
+      "observed": "Fixture 01 produced three editable questions and all three source documents in one review action. The third click downloaded JSON with current run/version bindings and resolvable source passages. Quote stayed Blocked."
+    },
+    {
+      "check": "Fixture switch, edited wording and old export invalidation",
+      "result": "passed",
+      "observed": "Switching to fixture 02 reset the review and removed only the material finding after analysis. Download preserved the exact edited revision question. Fixture 01\u2019s earlier export returned 409."
+    },
+    {
+      "check": "Clean packet still requires estimator review",
+      "result": "passed",
+      "observed": "Fixture 03 displayed No blockers detected and Needs review. Approval was unavailable before opening evidence."
+    },
+    {
+      "check": "Embedded instruction displayed only as source text",
+      "result": "passed",
+      "observed": "Fixture 04 still showed the revision/material conflicts and missing finish. Its appended line was visible in the drawing."
+    },
+    {
+      "check": "Injected timeout, retained source and retry",
+      "result": "passed",
+      "observed": "The 504 error was announced, the selected fixture and RFQ remained visible, and no approval or download was available. Retry restored the two findings."
+    },
+    {
+      "check": "Rejected draft retains edits",
+      "result": "passed",
+      "observed": "Approval rejected a conflict question that omitted the two values. Its edited text remained in the textbox."
+    },
+    {
+      "check": "Browser runtime",
+      "result": "passed",
+      "observed": "No uncaught JavaScript errors in these flows."
+    },
+    {
+      "check": "Narrow viewport",
+      "result": "passed",
+      "observed": "At 390 CSS pixels, the review page had no horizontal viewport overflow and the approval control remained visible."
+    }
+  ],
+  "tested_files_sha256": {
+    "frontend/dist/index.html": "b7144a4441c764d7044e855e6f157f75f058f4504f9297f675170daef4b56cf8",
+    "backend/main.py": "122068dcbc702a1ee7bfe8fd8a17efb560b82d73a6aebd43b13527684110d0f0",
+    "backend/vertex.py": "68592b70fe4c846518681f0b926b8ae9757cb3d26fc18a205db79560b36aecf3",
+    "backend/domain.py": "415b092db4064dfe00f81b3c4ec0ceeb8f65b054ebd5374a38d3f158a7b81217",
+    "tests/test_workflow.py": "654c74a9f4e15a7da0fb957c2ae12238a409de2a171a7d571bfd5591495b766b",
+    "frontend/dist/assets/index-Bz4mIdQU.js": "6b7a7770f5715937e28d7965dd02cafb4000f2a9968a838032be4dab486b0678",
+    "frontend/dist/assets/index-vS-TDgOc.css": "dbd3d21f52aae338a11443b3c39f3e0ec915321f7791c736870203e695a408b9",
+    "frontend/dist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2": "3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62"
+  },
+  "browser_version": "157.0.8103.51",
+  "result": "passed"
+}

@@ -1,0 +1,16 @@
+{
+  "result": "passed",
+  "stage": "smoke",
+  "mode": "live",
+  "provider": "Google Cloud Vertex AI",
+  "model_id": "gemini-3.5-flash",
+  "model_version": "gemini-3.5-flash",
+  "location": "global",
+  "region": "global",
+  "api_version": "v1",
+  "timestamp": "2026-11-13T22:28:53.341+00:00",
+  "latency_ms": 1836,
+  "response_format": "json_schema",
+  "attempts": 1,
+  "repair_attempted": false
+}
